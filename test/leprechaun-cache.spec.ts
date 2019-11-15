@@ -1,5 +1,4 @@
-import { createLeprechaunCache } from '../src/index';
-import { CacheStore, Cacheable } from '../src/types';
+import { createLeprechaunCache, CacheStore, Cacheable } from '../src';
 import * as chai from 'chai';
 import * as sinon from 'sinon';
 import * as sinonChai from 'sinon-chai';
@@ -11,31 +10,24 @@ let mockCacheItems = {};
 let mockLocks = {};
 const mockCacheStore: CacheStore = {
   get: async (key) => {
-    //console.log('getting ',key);
     return mockCacheItems[key]
   },
   set: async (key, data) => {
-    //console.log('setting ',key,data);
     mockCacheItems[key] = data
     return true
   },
   delete: async (key) => {
-    //console.log('deleting', key);
     delete mockCacheItems[key];
     return true;
   },
   lock: async (key) => {
-    //console.log('getting lock', key)
     if (!mockLocks[key]) {
-      //console.log('got lock', key)
       mockLocks[key] = true;
       return true;
     }
-    //console.log('didnt get lock', key)
     return false;
   },
   unlock: async (key) => {
-    //console.log('unlocking', key);
     delete mockLocks[key];
     return true;
   }
