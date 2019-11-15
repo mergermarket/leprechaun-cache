@@ -101,7 +101,7 @@ export function createLeprechaunCache({
   }
 
   async function clear(key: string): Promise<boolean> {
-    const deleted = await cacheStore.delete(key);
+    const deleted = await cacheStore.del(key);
     const unlocked = await cacheStore.unlock(key);
     return deleted && unlocked;
   }

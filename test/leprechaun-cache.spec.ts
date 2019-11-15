@@ -16,7 +16,7 @@ const mockCacheStore: CacheStore = {
     mockCacheItems[key] = data
     return true
   },
-  delete: async (key) => {
+  del: async (key) => {
     delete mockCacheItems[key];
     return true;
   },

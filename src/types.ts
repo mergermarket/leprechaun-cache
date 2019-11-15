@@ -7,7 +7,7 @@ export interface LeprechaunCache {
   clear: (key: string) => Promise<boolean>;
 }
 
-interface CacheItem {
+export interface CacheItem {
   data: Cacheable;
   expiresAt: number;
 }
@@ -15,7 +15,7 @@ interface CacheItem {
 export interface CacheStore {
   get: (key: string) => Promise<CacheItem | null>;
   set: (key: string, data: CacheItem, ttl: number) => Promise<boolean>;
-  delete: (key: string) => Promise<boolean>;
+  del: (key: string) => Promise<boolean>;
   lock: (key: string, ttl: number) => Promise<boolean>;
   unlock: (key: string) => Promise<boolean>;
 }
