@@ -1,24 +1,4 @@
-export type OnCacheMiss = (key: string) => Promise<Cacheable>
-
-export type Cacheable = string | number | boolean | object
-
-export interface LeprechaunCache {
-  get: (key: string, ttl: number, onMiss: OnCacheMiss) => Promise<Cacheable>;
-  clear: (key: string) => Promise<boolean>;
-}
-
-export interface CacheStore {
-  get: (key: string) => Promise<CacheItem>;
-  set: (key: string, data: CacheItem, ttl: number) => Promise<boolean>;
-  delete: (key: string) => Promise<boolean>;
-  lock: (key: string, ttl: number) => Promise<boolean>;
-  unlock: (key: string) => Promise<boolean>;
-}
-
-export interface CacheItem {
-  data: Cacheable;
-  expiresAt: number;
-}
+import { CacheStore, Cacheable, LeprechaunCache, OnCacheMiss } from './types'
 
 interface LockResult {
   locked: boolean;
@@ -56,10 +36,14 @@ export function createLeprechaunCache({
       didSpin: false
     };
     let i = 0;
-    while (!(lock.locked = await cacheStore.lock(key, lockTTL)) && (++i < spinWaitCount)) {
-      lock.didSpin = true;
+    do {
+      lock.locked = await cacheStore.lock(key, lockTTL);
+      if (lock.locked) {
+        break;
+      }
       await delay(spinMs);
-    }
+      lock.didSpin = true;
+    } while (i++ <= spinWaitCount)
     return lock;
   }
 
@@ -75,12 +59,12 @@ export function createLeprechaunCache({
 
     if (!lock.locked)
       throw new Error('unable to acquire lock and no data in cache');
-    
     if (lock.didSpin) {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
       const result = await cacheStore.get(key);
-      if (result && result['data']) {
-        return result['data'];
+      if (result && result.data) {
+        cacheStore.unlock(key);
+        return result.data;
       }
     }
     const data = await onMiss(key);
@@ -104,7 +88,7 @@ export function createLeprechaunCache({
       return await updateCache(key, onMiss, ttl, true);
     }
     if (result.expiresAt < Date.now()) {
-      const update = updateCache(key, onMiss, ttl, false);
+      const update = updateCache(key, onMiss, ttl, !returnStale);
       if (returnStale) {
         //since we'll be returning the stale data
         //ignore any errors (most likely couldn't get the lock - another process is updating
