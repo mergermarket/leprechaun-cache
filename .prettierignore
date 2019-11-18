@@ -30,5 +30,3 @@ coverage
 __snapshots__
 
 # </@acuris/eslint-config>
-
-dist/

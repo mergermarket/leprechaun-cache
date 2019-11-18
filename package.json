@@ -1,39 +1,71 @@
 {
-    "name": "leprechaun-cache",
-    "version": "0.0.1",
-    "description": "Caching library that supports double checked caching and stale returns to avoid stampede and slow responses",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "scripts": {
-        "build": "tsc",
-        "test": "ts-mocha --recursive \"./test/unit/**/*.spec.ts\"",
-        "test:integration": "docker run -d -p 6379:6379 --name leprechaun-redis redis && ts-mocha --recursive \"./test/integration/**/*.spec.ts\"; docker stop leprechaun-redis; docker rm leprechaun-redis",
-        "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-        "fix": "eslint . --fix --ext .js,.jsx,.ts,.tsx"
-    },
-    "devDependencies": {
-        "@types/chai": "^4.2.5",
-        "@types/mocha": "^5.2.7",
-        "@types/sinon-chai": "^3.2.3",
-        "@typescript-eslint/eslint-plugin": "^2.7.0",
-        "@typescript-eslint/parser": "^2.7.0",
-        "chai": "^4.2.0",
-        "eslint": "^6.6.0",
-        "eslint-config-prettier": "^6.5.0",
-        "eslint-import-resolver-typescript": "^2.0.0",
-        "eslint-plugin-import": "^2.18.2",
-        "eslint-plugin-json": "^2.0.1",
-        "eslint-plugin-prettier": "^3.1.1",
-        "mocha": "^6.2.2",
-        "prettier": "^1.19.1",
-        "redis": "^2.8.0",
-        "sinon": "^7.5.0",
-        "sinon-chai": "^3.3.0",
-        "ts-mocha": "^6.0.0",
-        "typescript": "^3.7.2"
-    },
-    "dependencies": {
-        "@types/redis": "^2.8.14",
-        "uuid": "^3.3.3"
+  "name": "leprechaun-cache",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Caching library that supports double checked caching and stale returns to avoid stampede and slow responses",
+  "keywords": [
+    "leprechaun-cache"
+  ],
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/mergermarket/leprechaun-cache#readme",
+  "repository": {
+    "repository": "git",
+    "url": "https://github.com/mergermarket/leprechaun-cache.git"
+  },
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "ts-mocha --recursive \"./test/unit/**/*.spec.ts\"",
+    "test:integration": "docker run -d -p 6379:6379 --name leprechaun-redis redis && ts-mocha --recursive \"./test/integration/**/*.spec.ts\"; docker stop leprechaun-redis; docker rm leprechaun-redis",
+    "acuris-eslint": "npx acuris-eslint"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
     }
+  },
+  "lint-staged": {
+    "*.{js,jsx,json,ts,tsx}": [
+      "acuris-eslint --lint-staged --fix --max-warnings=0",
+      "git add"
+    ]
+  },
+  "dependencies": {
+    "@types/redis": "^2.8.14",
+    "uuid": "^3.3.3"
+  },
+  "devDependencies": {
+    "@acuris/eslint-config": "^0.0.48",
+    "@types/chai": "^4.2.5",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.12.7",
+    "@types/sinon-chai": "^3.2.3",
+    "@typescript-eslint/eslint-plugin": "^2.7.0",
+    "@typescript-eslint/parser": "^2.7.0",
+    "chai": "^4.2.0",
+    "eslint": "^6.6.0",
+    "eslint-config-prettier": "^6.5.0",
+    "eslint-import-resolver-typescript": "^2.0.0",
+    "eslint-plugin-chai-expect": "^2.0.1",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-json": "^2.0.1",
+    "eslint-plugin-mocha": "^6.2.1",
+    "eslint-plugin-node": "^10.0.0",
+    "eslint-plugin-prettier": "^3.1.1",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-scope": "^5.0.0",
+    "husky": "^3.0.9",
+    "lint-staged": "^9.4.2",
+    "mocha": "^6.2.2",
+    "prettier": "^1.19.1",
+    "redis": "^2.8.0",
+    "sinon": "^7.5.0",
+    "sinon-chai": "^3.3.0",
+    "ts-mocha": "^6.0.0",
+    "typescript": "^3.7.2"
+  }
 }
