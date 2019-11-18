@@ -39,7 +39,9 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  function lockKey(key) { return `LOCK-${key}`; }
+  function lockKey(key: string): string { 
+    return `LOCK-${key}`; 
+  }
 
   async function lock(key: string, ttl: number): Promise<string | false> {
     const lockId = uuidV4();
@@ -58,7 +60,7 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     return new Promise((resolve, reject) => {
       redisClient.get(lockKey(key), (error, result) => {
         if (!error && result && result === lockId) {
-          redisClient.del(lockKey(key), (error, result) => {
+          redisClient.del(lockKey(key), (error) => {
             if (error) { reject(error); }
             resolve(true);
           });

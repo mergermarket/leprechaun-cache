@@ -23,7 +23,7 @@ describe('Leprechaun Cache (integration)', () => {
 
   beforeEach(async () => {
     await new Promise(resolve => {
-      redisClient.FLUSHALL((error, result) => {
+      redisClient.FLUSHALL(() => {
         resolve();
       })
     });
