@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { createLeprechaunCache, CacheStore, Cacheable } from '../../src'
+import { CacheStore, Cacheable, LeprechaunCache } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
 import * as sinonChai from 'sinon-chai'
 import { RedisClient } from 'redis'
-import { createRedisCacheStore } from '../../src/storage/redis-cache-store'
+import { RedisCacheStore } from '../../src/storage/redis-cache-store'
 
 chai.use(sinonChai)
 const expect = chai.expect
 const redisClient = new RedisClient({})
-const cacheStore: CacheStore = createRedisCacheStore(redisClient)
+const cacheStore: CacheStore = new RedisCacheStore(redisClient)
 
 function delay(durationMs: number): Promise<void> {
   return new Promise(resolve => {
@@ -44,7 +44,7 @@ describe('Leprechaun Cache (integration)', () => {
     }
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -71,7 +71,7 @@ describe('Leprechaun Cache (integration)', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -100,7 +100,7 @@ describe('Leprechaun Cache (integration)', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -132,7 +132,7 @@ describe('Leprechaun Cache (integration)', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -175,7 +175,7 @@ describe('Leprechaun Cache (integration)', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,

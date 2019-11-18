@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { createLeprechaunCache, CacheStore, Cacheable } from '../../src'
+import { CacheStore, Cacheable, LeprechaunCache } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
 import * as sinonChai from 'sinon-chai'
@@ -61,7 +61,7 @@ describe('Leprechaun Cache', () => {
     }
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 1000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -88,7 +88,7 @@ describe('Leprechaun Cache', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 1000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -117,7 +117,7 @@ describe('Leprechaun Cache', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 1000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -149,7 +149,7 @@ describe('Leprechaun Cache', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 1000,
       waitForUnlockMs: 1000,
       spinMs: 50,
@@ -192,7 +192,7 @@ describe('Leprechaun Cache', () => {
 
     const key = 'key'
 
-    const cache = createLeprechaunCache({
+    const cache = new LeprechaunCache({
       hardTTL: 1000,
       waitForUnlockMs: 1000,
       spinMs: 50,

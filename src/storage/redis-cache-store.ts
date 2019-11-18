@@ -2,10 +2,16 @@ import { CacheStore, CacheItem } from '../types'
 import { RedisClient } from 'redis'
 import { v4 as uuidV4 } from 'uuid'
 
-export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
-  function get(key: string): Promise<CacheItem> {
-    return new Promise<CacheItem>((resolve, reject) => {
-      redisClient.get(key, (error, result) => {
+function lockKey(key: string): string {
+  return `LOCK-${key}`
+}
+
+export class RedisCacheStore<T> implements CacheStore<T> {
+  public constructor(private redisClient: RedisClient) {}
+
+  public get(key: string): Promise<CacheItem<T>> {
+    return new Promise<CacheItem<T>>((resolve, reject) => {
+      this.redisClient.get(key, (error, result) => {
         if (error) {
           reject(error)
         }
@@ -17,9 +23,9 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  function set(key: string, data: CacheItem, ttl: number): Promise<boolean> {
+  public set(key: string, data: CacheItem<T>, ttl: number): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
-      redisClient.set(key, JSON.stringify(data), 'PX', ttl, (error, result) => {
+      this.redisClient.set(key, JSON.stringify(data), 'PX', ttl, (error, result) => {
         if (error) {
           reject(error)
         }
@@ -31,9 +37,9 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  function del(key: string): Promise<boolean> {
+  public del(key: string): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
-      redisClient.del(key, (error, res) => {
+      this.redisClient.del(key, (error, res) => {
         if (error) {
           reject(error)
         }
@@ -42,14 +48,10 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  function lockKey(key: string): string {
-    return `LOCK-${key}`
-  }
-
-  async function lock(key: string, ttl: number): Promise<string | false> {
+  public lock(key: string, ttl: number): Promise<string | false> {
     const lockId = uuidV4()
     return new Promise<string | false>((resolve, reject) => {
-      redisClient.set(lockKey(key), lockId, 'PX', ttl, 'NX', (error, result) => {
+      this.redisClient.set(lockKey(key), lockId, 'PX', ttl, 'NX', (error, result) => {
         if (error) {
           reject(error)
         }
@@ -61,11 +63,11 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  async function unlock(key: string, lockId: string): Promise<boolean> {
+  public unlock(key: string, lockId: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      redisClient.get(lockKey(key), (error, result) => {
+      this.redisClient.get(lockKey(key), (error, result) => {
         if (!error && result && result === lockId) {
-          redisClient.del(lockKey(key), err => {
+          this.redisClient.del(lockKey(key), err => {
             if (err) {
               reject(err)
             }
@@ -76,13 +78,5 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
         }
       })
     })
-  }
-
-  return {
-    get,
-    set,
-    del,
-    lock,
-    unlock
   }
 }

@@ -1,4 +1,4 @@
-import { CacheStore, Cacheable, LeprechaunCache, OnCacheMiss } from './types'
+import { CacheStore, Cacheable, OnCacheMiss } from './types'
 
 interface LockResult {
   lockId: string | false
@@ -13,85 +13,99 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
-export function createLeprechaunCache({
-  hardTTL,
-  waitForUnlockMs,
-  lockTTL,
-  cacheStore,
-  spinMs,
-  returnStale
-}: {
-  hardTTL: number
-  lockTTL: number
-  waitForUnlockMs: number
-  cacheStore: CacheStore
-  spinMs: number
-  returnStale: boolean
-}): LeprechaunCache {
-  const spinWaitCount = waitForUnlockMs / spinMs
+export class LeprechaunCache<T = Cacheable> {
+  private hardTTL: number
+  private lockTTL: number
+  private returnStale: boolean
+  private spinWaitCount: number
+  private cacheStore: CacheStore<T>
+  private spinMs: number
 
-  async function spinLock(key: string): Promise<LockResult> {
+  public constructor({
+    hardTTL,
+    lockTTL,
+    waitForUnlockMs,
+    cacheStore,
+    spinMs,
+    returnStale
+  }: {
+    hardTTL: number
+    lockTTL: number
+    waitForUnlockMs: number
+    cacheStore: CacheStore<T>
+    spinMs: number
+    returnStale: boolean
+  }) {
+    this.hardTTL = hardTTL
+    this.lockTTL = lockTTL
+    this.spinWaitCount = Math.ceil(waitForUnlockMs / spinMs)
+    this.spinMs = spinMs
+    this.cacheStore = cacheStore
+    this.returnStale = returnStale
+  }
+
+  private async spinLock(key: string): Promise<LockResult> {
     const lock: LockResult = {
       lockId: '',
       didSpin: false
     }
     let i = 0
     do {
-      lock.lockId = await cacheStore.lock(key, lockTTL)
+      lock.lockId = await this.cacheStore.lock(key, this.lockTTL)
       if (lock.lockId) {
         break
       }
-      await delay(spinMs)
+      await delay(this.spinMs)
       lock.didSpin = true
-    } while (i++ <= spinWaitCount)
+    } while (i++ <= this.spinWaitCount)
     return lock
   }
 
-  async function getLock(key: string, doSpinLock: boolean): Promise<LockResult> {
+  private async getLock(key: string, doSpinLock: boolean): Promise<LockResult> {
     return doSpinLock
-      ? spinLock(key)
+      ? this.spinLock(key)
       : {
-          lockId: await cacheStore.lock(key, lockTTL),
+          lockId: await this.cacheStore.lock(key, this.lockTTL),
           didSpin: false
         }
   }
 
-  async function updateCache(key: string, onMiss: OnCacheMiss, ttl: number, doSpinLock: boolean): Promise<Cacheable> {
-    const lock = await getLock(key, doSpinLock)
+  private async updateCache(key: string, onMiss: OnCacheMiss<T>, ttl: number, doSpinLock: boolean): Promise<T> {
+    const lock = await this.getLock(key, doSpinLock)
 
     if (!lock.lockId) {
       throw new Error('unable to acquire lock and no data in cache')
     }
     if (lock.didSpin) {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
-      const result = await cacheStore.get(key)
+      const result = await this.cacheStore.get(key)
       if (result && result.data) {
-        cacheStore.unlock(key, lock.lockId)
+        this.cacheStore.unlock(key, lock.lockId)
         return result.data
       }
     }
 
     const data = await onMiss(key)
-    cacheStore.set(
+    this.cacheStore.set(
       key,
       {
         data,
         expiresAt: Date.now() + ttl
       },
-      hardTTL
+      this.hardTTL
     )
-    cacheStore.unlock(key, lock.lockId)
+    this.cacheStore.unlock(key, lock.lockId)
     return data
   }
 
-  async function get(key: string, ttl: number, onMiss: OnCacheMiss): Promise<Cacheable> {
-    const result = await cacheStore.get(key)
+  public async get(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
+    const result = await this.cacheStore.get(key)
     if (!result) {
-      return updateCache(key, onMiss, ttl, true)
+      return this.updateCache(key, onMiss, ttl, true)
     }
     if (result.expiresAt < Date.now()) {
-      const update = updateCache(key, onMiss, ttl, !returnStale)
-      if (returnStale) {
+      const update = this.updateCache(key, onMiss, ttl, !this.returnStale)
+      if (this.returnStale) {
         //since we'll be returning the stale data
         //ignore any errors (most likely couldn't get the lock - another process is updating
         update.catch(() => {})
@@ -102,12 +116,7 @@ export function createLeprechaunCache({
     return result.data
   }
 
-  async function clear(key: string): Promise<boolean> {
-    return cacheStore.del(key)
-  }
-
-  return {
-    get,
-    clear
+  public async clear(key: string): Promise<boolean> {
+    return this.cacheStore.del(key)
   }
 }
