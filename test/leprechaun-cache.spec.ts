@@ -183,7 +183,7 @@ describe('Leprechaun Cache', () => {
     }
     const onMiss = sandbox.stub().resolves(data1);
     const onMiss2 = sandbox.stub().resolves(data2);
-    const onMissDelayed = async (key): Promise<Cacheable> => { await delay(80); return await onMiss2(key) }
+    const onMissDelayed = async (key): Promise<Cacheable> => { await delay(40); return await onMiss2(key) }
 
     const key = 'key';
     
