@@ -1,4 +1,4 @@
-import { CacheStore, Cacheable, OnCacheMiss } from './types'
+import { CacheStore, Cacheable, OnCacheMiss, LeprechaunCacheOptions } from './types'
 
 interface LockResult {
   lockId: string | false
@@ -11,15 +11,6 @@ function delay(durationMs: number): Promise<void> {
       resolve()
     }, durationMs)
   })
-}
-
-export interface LeprechaunCacheOptions<T = Cacheable> {
-  hardTTL: number
-  lockTTL: number
-  waitForUnlockMs: number
-  cacheStore: CacheStore<T>
-  spinMs: number
-  returnStale: boolean
 }
 
 export class LeprechaunCache<T = Cacheable> {
@@ -53,11 +44,11 @@ export class LeprechaunCache<T = Cacheable> {
     return result
   }
 
-  public async get(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
+  public async get(key: string, ttlInMilliseconds: number, onMiss: OnCacheMiss<T>): Promise<T> {
     let promise = this.inProgress.get(key)
     if (promise === undefined) {
       try {
-        promise = this.doGet(key, ttl, onMiss)
+        promise = this.doGet(key, ttlInMilliseconds, onMiss)
         this.inProgress.set(key, promise)
         return await promise
       } finally {
