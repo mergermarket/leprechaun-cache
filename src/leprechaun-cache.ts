@@ -1,7 +1,7 @@
 import { CacheStore, Cacheable, LeprechaunCache, OnCacheMiss } from './types'
 
 interface LockResult {
-  locked: boolean;
+  lockId: string | false;
   didSpin: boolean;
 }
 
@@ -31,14 +31,14 @@ export function createLeprechaunCache({
   const spinWaitCount = waitForUnlockMs / spinMs;
 
   async function spinLock(key: string): Promise<LockResult> {
-    const lock = {
-      locked: false,
+    const lock: LockResult = {
+      lockId: '',
       didSpin: false
     };
     let i = 0;
     do {
-      lock.locked = await cacheStore.lock(key, lockTTL);
-      if (lock.locked) {
+      lock.lockId = await cacheStore.lock(key, lockTTL);
+      if (lock.lockId) {
         break;
       }
       await delay(spinMs);
@@ -49,7 +49,7 @@ export function createLeprechaunCache({
 
   async function getLock(key: string, doSpinLock: boolean): Promise<LockResult> {
     return doSpinLock ? await spinLock(key) : {
-      locked: await cacheStore.lock(key, lockTTL),
+      lockId: await cacheStore.lock(key, lockTTL),
       didSpin: false
     };
   }
@@ -57,16 +57,17 @@ export function createLeprechaunCache({
   async function updateCache(key: string, onMiss: OnCacheMiss, ttl: number, doSpinLock: boolean): Promise<Cacheable> {
     const lock = await getLock(key, doSpinLock);
 
-    if (!lock.locked)
+    if (!lock.lockId)
       throw new Error('unable to acquire lock and no data in cache');
     if (lock.didSpin) {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
       const result = await cacheStore.get(key);
       if (result && result.data) {
-        cacheStore.unlock(key);
+        cacheStore.unlock(key, lock.lockId);
         return result.data;
       }
     }
+    
     const data = await onMiss(key);
     cacheStore.set(
       key,
@@ -76,11 +77,9 @@ export function createLeprechaunCache({
       },
       hardTTL
     );
-    cacheStore.unlock(key);
+    cacheStore.unlock(key, lock.lockId);
     return data;
   }
-
-
 
   async function get(key: string, ttl: number, onMiss: OnCacheMiss): Promise<Cacheable> {
     const result = await cacheStore.get(key);
@@ -101,9 +100,7 @@ export function createLeprechaunCache({
   }
 
   async function clear(key: string): Promise<boolean> {
-    const deleted = await cacheStore.del(key);
-    const unlocked = await cacheStore.unlock(key);
-    return deleted && unlocked;
+    return cacheStore.del(key);
   }
 
   return {

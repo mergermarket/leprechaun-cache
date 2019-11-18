@@ -39,21 +39,32 @@ export function createRedisCacheStore(redisClient: RedisClient): CacheStore {
     })
   }
 
-  async function lock(key: string, ttl: number): Promise<boolean> {
-    const token = uuidV4();
-    return new Promise<boolean>((resolve,reject) => {
-      redisClient.set(`LOCK-${key}`, token, 'PX', ttl, 'NX', (error, result) => {
+  async function lock(key: string, ttl: number): Promise<string | false> {
+    const lockId = uuidV4();
+    return new Promise<string | false>((resolve,reject) => {
+      redisClient.set(`LOCK-${key}`, lockId, 'PX', ttl, 'NX', (error, result) => {
         if (error) reject(error);
         if (result === 'OK') {
-          resolve(true);
+          resolve(lockId);
         }
         resolve(false);
       })
     })
   }
 
-  function unlock(key: string): Promise<boolean> {
-    return del(`LOCK-${key}`);
+  async function unlock(key: string, lockId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      redisClient.get(key, (error, result) => {
+        if (!error && result && result === lockId) {
+          redisClient.del(`LOCK-${key}`, (error) => {
+            if (error) { reject(error); }
+            resolve(true);
+          });
+        } else {
+          resolve(false);
+        }
+      })
+    })
   }
 
   return {

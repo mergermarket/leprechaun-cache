@@ -21,13 +21,15 @@ const mockCacheStore: CacheStore = {
     return true;
   },
   lock: async (key) => {
+    const keyId = `${Math.floor(Math.random() * 1000)}`;
     if (!mockLocks[key]) {
-      mockLocks[key] = true;
-      return true;
+      mockLocks[key] = keyId;
+      return keyId;
     }
     return false;
   },
-  unlock: async (key) => {
+  unlock: async (key, keyId) => {
+    if (!mockLocks[key] || mockLocks[key] !== keyId) return false;
     delete mockLocks[key];
     return true;
   }

@@ -16,6 +16,6 @@ export interface CacheStore {
   get: (key: string) => Promise<CacheItem | null>;
   set: (key: string, data: CacheItem, ttl: number) => Promise<boolean>;
   del: (key: string) => Promise<boolean>;
-  lock: (key: string, ttl: number) => Promise<boolean>;
-  unlock: (key: string) => Promise<boolean>;
+  lock: (key: string, ttl: number) => Promise<string | false>;
+  unlock: (key: string, lockId: string) => Promise<boolean>;
 }
