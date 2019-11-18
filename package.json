@@ -6,7 +6,8 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc",
-        "test": "ts-mocha --recursive \"./test/**/*.spec.ts\"",
+        "test": "ts-mocha --recursive \"./test/unit/**/*.spec.ts\"",
+        "test:integration": "docker run -d -p 6379:6379 --name leprechaun-redis redis && ts-mocha --recursive \"./test/integration/**/*.spec.ts\"; docker stop leprechaun-redis; docker rm leprechaun-redis",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "fix": "eslint . --fix --ext .js,.jsx,.ts,.tsx"
     },
@@ -25,6 +26,7 @@
         "eslint-plugin-prettier": "^3.1.1",
         "mocha": "^6.2.2",
         "prettier": "^1.19.1",
+        "redis": "^2.8.0",
         "sinon": "^7.5.0",
         "sinon-chai": "^3.3.0",
         "ts-mocha": "^6.0.0",
