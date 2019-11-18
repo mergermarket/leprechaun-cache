@@ -9,8 +9,8 @@ function lockKey(key: string): string {
 export class RedisCacheStore<T> implements CacheStore<T> {
   public constructor(private redisClient: RedisClient) {}
 
-  public get(key: string): Promise<CacheItem<T>> {
-    return new Promise<CacheItem<T>>((resolve, reject) => {
+  public get(key: string): Promise<CacheItem<T> | null> {
+    return new Promise<CacheItem<T> | null>((resolve, reject) => {
       this.redisClient.get(key, (error, result) => {
         if (error) {
           reject(error)

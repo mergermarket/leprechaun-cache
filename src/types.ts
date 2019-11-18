@@ -7,6 +7,12 @@ export interface CacheItem<T = Cacheable> {
   expiresAt: number
 }
 
+export interface LeprechaunCacheGetResult<T = Cacheable> {
+  error: Error | null
+  isStale: boolean
+  data: T
+}
+
 export interface CacheStore<T = Cacheable> {
   get: (key: string) => Promise<CacheItem<T> | null>
   set: (key: string, data: CacheItem<T>, ttl: number) => Promise<boolean>

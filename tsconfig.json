@@ -1,5 +1,7 @@
 {
+  "extends": "@acuris/eslint-config/tsconfig.json",
   "compilerOptions": {
+    "noEmit": false,
     "module": "commonjs",
     "target": "es2017",
     "declaration": true,

@@ -13,6 +13,15 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
+export interface LeprechaunCacheOptions<T = Cacheable> {
+  hardTTL: number
+  lockTTL: number
+  waitForUnlockMs: number
+  cacheStore: CacheStore<T>
+  spinMs: number
+  returnStale: boolean
+}
+
 export class LeprechaunCache<T = Cacheable> {
   private hardTTL: number
   private lockTTL: number
@@ -20,6 +29,7 @@ export class LeprechaunCache<T = Cacheable> {
   private spinWaitCount: number
   private cacheStore: CacheStore<T>
   private spinMs: number
+  private inProgress = new Map<string, Promise<T>>()
 
   public constructor({
     hardTTL,
@@ -28,20 +38,51 @@ export class LeprechaunCache<T = Cacheable> {
     cacheStore,
     spinMs,
     returnStale
-  }: {
-    hardTTL: number
-    lockTTL: number
-    waitForUnlockMs: number
-    cacheStore: CacheStore<T>
-    spinMs: number
-    returnStale: boolean
-  }) {
+  }: LeprechaunCacheOptions<T>) {
     this.hardTTL = hardTTL
     this.lockTTL = lockTTL
     this.spinWaitCount = Math.ceil(waitForUnlockMs / spinMs)
     this.spinMs = spinMs
     this.cacheStore = cacheStore
     this.returnStale = returnStale
+  }
+
+  public async clear(key: string): Promise<boolean> {
+    const result = await this.cacheStore.del(key)
+    this.inProgress.delete(key)
+    return result
+  }
+
+  public async get(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
+    let promise = this.inProgress.get(key)
+    if (promise === undefined) {
+      try {
+        promise = this.doGet(key, ttl, onMiss)
+        this.inProgress.set(key, promise)
+        return await promise
+      } finally {
+        this.inProgress.delete(key)
+      }
+    }
+    return promise
+  }
+
+  private async doGet(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
+    const result = await this.cacheStore.get(key)
+    if (!result) {
+      return this.updateCache(key, onMiss, ttl, true)
+    }
+    if (result.expiresAt < Date.now()) {
+      const update = this.updateCache(key, onMiss, ttl, !this.returnStale)
+      if (this.returnStale) {
+        //since we'll be returning the stale data
+        //ignore any errors (most likely couldn't get the lock - another process is updating
+        update.catch(() => {})
+      } else {
+        return update
+      }
+    }
+    return result.data
   }
 
   private async spinLock(key: string): Promise<LockResult> {
@@ -85,38 +126,21 @@ export class LeprechaunCache<T = Cacheable> {
       }
     }
 
-    const data = await onMiss(key)
-    this.cacheStore.set(
-      key,
-      {
-        data,
-        expiresAt: Date.now() + ttl
-      },
-      this.hardTTL
-    )
-    this.cacheStore.unlock(key, lock.lockId)
-    return data
-  }
+    try {
+      const data = await onMiss(key)
 
-  public async get(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
-    const result = await this.cacheStore.get(key)
-    if (!result) {
-      return this.updateCache(key, onMiss, ttl, true)
-    }
-    if (result.expiresAt < Date.now()) {
-      const update = this.updateCache(key, onMiss, ttl, !this.returnStale)
-      if (this.returnStale) {
-        //since we'll be returning the stale data
-        //ignore any errors (most likely couldn't get the lock - another process is updating
-        update.catch(() => {})
-      } else {
-        return update
-      }
-    }
-    return result.data
-  }
+      this.cacheStore.set(
+        key,
+        {
+          data,
+          expiresAt: Date.now() + ttl
+        },
+        this.hardTTL
+      )
 
-  public async clear(key: string): Promise<boolean> {
-    return this.cacheStore.del(key)
+      return data
+    } finally {
+      this.cacheStore.unlock(key, lock.lockId)
+    }
   }
 }
