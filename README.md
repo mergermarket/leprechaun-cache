@@ -1,8 +1,13 @@
 # leprechaun-cache
 
-Caching library supporting locked updates and stale return.
+Caching library supporting locked updates and stale return to handle [cache stampede / dog pile](https://en.wikipedia.org/wiki/Cache_stampede) protection.
 
-Currently only supports redis (via node_redis) as a backend store
+The locking means that when the cache expires, only one process will handle the miss and call the (potentially expensive) re-generation method.
+
+If `returnStale` is true, then all requests for the same key will return a stale version of the cache while it is being regenerated (including the process that is performing the regeneration)
+If `returnStale` is false (or there is nothing already in the cache), then all requests for that key will wait until the update is complete, and then return the updated version from the cache
+
+Currently only supports redis (via node_redis) as a backend store, but it is easy to create your own store as long as it is able to support distributed locking
 
 Usage:
 
