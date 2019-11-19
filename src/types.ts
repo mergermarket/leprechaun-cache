@@ -14,3 +14,12 @@ export interface CacheStore<T = Cacheable> {
   lock: (key: string, ttl: number) => Promise<string | false>
   unlock: (key: string, lockId: string) => Promise<boolean>
 }
+
+export interface LeprechaunCacheOptions<T = Cacheable> {
+  hardTTL: number
+  lockTTL: number
+  waitForUnlockMs: number
+  cacheStore: CacheStore<T>
+  spinMs: number
+  returnStale: boolean
+}
