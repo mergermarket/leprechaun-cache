@@ -22,8 +22,10 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
   private spinMs: number
   private inProgress = new Map<string, Promise<T>>()
   private onMiss: OnCacheMiss<T>
+  private keyPrefix: string
 
   public constructor({
+    keyPrefix = '',
     hardTTL,
     lockTTL,
     waitForUnlockMs,
@@ -39,10 +41,11 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     this.cacheStore = cacheStore
     this.returnStale = returnStale
     this.onMiss = onMiss
+    this.keyPrefix = keyPrefix
   }
 
   public async clear(key: string): Promise<boolean> {
-    const result = await this.cacheStore.del(key)
+    const result = await this.cacheStore.del(this.keyPrefix + key)
     this.inProgress.delete(key)
     return result
   }
@@ -51,7 +54,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     let promise = this.inProgress.get(key)
     if (promise === undefined) {
       try {
-        promise = this.doGet(key, ttlInMilliseconds)
+        promise = this.doGet(this.keyPrefix + key, ttlInMilliseconds)
         this.inProgress.set(key, promise)
         return await promise
       } finally {
