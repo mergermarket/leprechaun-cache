@@ -71,10 +71,10 @@ describe('Leprechaun Cache', () => {
       returnStale: false,
       onMiss
     })
-    const result = await cache.get(key, 100)
+    const result = await cache.get(key, 80)
     expect(result).to.deep.equal(data)
 
-    const result2 = await cache.get(key, 100)
+    const result2 = await cache.get(key, 80)
     expect(result2).to.deep.equal(data)
     expect(onMiss).calledOnce
   })
@@ -101,12 +101,12 @@ describe('Leprechaun Cache', () => {
       onMiss
     })
 
-    const result = await cache.get(key, 100)
+    const result = await cache.get(key, 80)
     expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
-    await delay(200) //delay for the ttl
-    const result2 = await cache.get(key, 100)
+    await delay(100) //delay for the ttl
+    const result2 = await cache.get(key, 80)
     expect(result2).to.deep.equal(data2)
   })
 
@@ -131,12 +131,12 @@ describe('Leprechaun Cache', () => {
       onMiss
     })
 
-    const result = await cache.get(key, 100)
+    const result = await cache.get(key, 80)
     expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
     await delay(100) //delay for the ttl
-    const result2 = await cache.get(key, 100)
+    const result2 = await cache.get(key, 80)
     expect(result2).to.deep.equal(data1)
 
     await delay(100) //short delay to allow the async update to process
@@ -172,14 +172,14 @@ describe('Leprechaun Cache', () => {
       onMiss
     })
 
-    await cache.get(key, 100)
+    await cache.get(key, 80)
     await delay(100) //delay for the ttl
     delayMs = 80
     onMissStub.reset()
     onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
+    const results = await Promise.all([cache.get(key, 80), cache.get(key, 80)])
 
     expect(results[0]).to.deep.equal(data2)
     expect(results[1]).to.deep.equal(data2)
@@ -216,14 +216,14 @@ describe('Leprechaun Cache', () => {
     })
 
     //initial population:
-    await cache.get(key, 100)
+    await cache.get(key, 80)
     await delay(100) //delay for the ttl
     delayMs = 80
     onMissStub.reset()
     onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
+    const results = await Promise.all([cache.get(key, 80), cache.get(key, 80)])
 
     //we expect both results to be data1, since data2 hasn't updated yet
     expect(results[0]).to.deep.equal(data1)
@@ -234,7 +234,7 @@ describe('Leprechaun Cache', () => {
     expect(onMissStub).calledOnce
 
     //now it should be updated:
-    const results2 = await cache.get(key, 100)
+    const results2 = await cache.get(key, 80)
     expect(results2).to.deep.equal(data2)
   })
 })

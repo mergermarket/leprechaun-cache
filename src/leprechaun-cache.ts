@@ -1,7 +1,7 @@
 import { CacheStore, Cacheable, OnCacheMiss, LeprechaunCacheOptions } from './types'
 
 interface LockResult {
-  lockId: string | false
+  lockId: string
   didSpin: boolean
 }
 
@@ -13,6 +13,8 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
+const defaultBackgroundErrorHandler = (_: Error) => {}
+
 export class LeprechaunCache<T extends Cacheable = Cacheable> {
   private hardTTL: number
   private lockTTL: number
@@ -23,6 +25,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
   private inProgress = new Map<string, Promise<T>>()
   private onMiss: OnCacheMiss<T>
   private keyPrefix: string
+  private onBackgroundError: (e: Error) => void
 
   public constructor({
     keyPrefix = '',
@@ -32,7 +35,8 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     cacheStore,
     spinMs,
     returnStale,
-    onMiss
+    onMiss,
+    onBackgroundError = defaultBackgroundErrorHandler
   }: LeprechaunCacheOptions<T>) {
     this.hardTTL = hardTTL
     this.lockTTL = lockTTL
@@ -42,6 +46,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     this.returnStale = returnStale
     this.onMiss = onMiss
     this.keyPrefix = keyPrefix
+    this.onBackgroundError = onBackgroundError
   }
 
   public async clear(key: string): Promise<boolean> {
@@ -72,9 +77,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     if (result.expiresAt < Date.now()) {
       const update = this.updateCache(key, ttl, !this.returnStale)
       if (this.returnStale) {
-        //since we'll be returning the stale data
-        //ignore any errors (most likely couldn't get the lock - another process is updating
-        update.catch(() => {})
+        update.catch(this.onBackgroundError)
       } else {
         return update
       }
@@ -89,7 +92,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     }
     let i = 0
     do {
-      lock.lockId = await this.cacheStore.lock(key, this.lockTTL)
+      lock.lockId = (await this.cacheStore.lock(key, this.lockTTL)) || ''
       if (lock.lockId) {
         break
       }
@@ -103,7 +106,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return doSpinLock
       ? this.spinLock(key)
       : {
-          lockId: await this.cacheStore.lock(key, this.lockTTL),
+          lockId: (await this.cacheStore.lock(key, this.lockTTL)) || '',
           didSpin: false
         }
   }
@@ -114,6 +117,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     if (!lock.lockId) {
       throw new Error('unable to acquire lock and no data in cache')
     }
+
     if (lock.didSpin) {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
       const result = await this.cacheStore.get(key)
@@ -123,21 +127,18 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
       }
     }
 
-    try {
-      const data = await this.onMiss(key)
+    const data = await this.onMiss(key)
 
-      this.cacheStore.set(
-        key,
-        {
-          data,
-          expiresAt: Date.now() + ttl
-        },
-        this.hardTTL
-      )
-
-      return data
-    } finally {
-      this.cacheStore.unlock(key, lock.lockId)
+    const cacheData = {
+      data,
+      expiresAt: Date.now() + ttl
     }
+
+    this.cacheStore
+      .set(key, cacheData, this.hardTTL)
+      .then(() => this.cacheStore.unlock(key, lock.lockId))
+      .catch(this.onBackgroundError)
+
+    return data
   }
 }

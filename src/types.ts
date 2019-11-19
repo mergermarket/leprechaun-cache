@@ -24,4 +24,5 @@ export interface LeprechaunCacheOptions<T extends Cacheable = Cacheable> {
   spinMs: number
   returnStale: boolean
   onMiss: OnCacheMiss<T>
+  onBackgroundError?: (e: Error) => void
 }
