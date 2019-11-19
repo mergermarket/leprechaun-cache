@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { CacheStore, Cacheable, LeprechaunCache } from '../../src'
+import { CacheStore, LeprechaunCache } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
-import * as sinonChai from 'sinon-chai'
+import sinonChai from 'sinon-chai'
 import { RedisClient } from 'redis'
 import { RedisCacheStore } from '../../src/storage/redis-cache-store'
 
@@ -44,19 +44,20 @@ describe('Leprechaun Cache (integration)', () => {
     }
     const key = 'key'
 
+    const onMiss = sandbox.stub().resolves(data)
     const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
-    const onMiss = sandbox.stub().resolves(data)
-    const result = await cache.get(key, 100, onMiss)
+    const result = await cache.get(key, 100)
     expect(result).to.deep.equal(data)
 
-    const result2 = await cache.get(key, 100, onMiss)
+    const result2 = await cache.get(key, 100)
     expect(result2).to.deep.equal(data)
     expect(onMiss).calledOnce
   })
@@ -71,22 +72,24 @@ describe('Leprechaun Cache (integration)', () => {
 
     const key = 'key'
 
+    const onMiss = sandbox.stub().resolves(data1)
+
     const cache = new LeprechaunCache({
       hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    const result = await cache.get(key, 100, onMiss)
+    const result = await cache.get(key, 100)
     expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
     await delay(200) //delay for the ttl
-    const result2 = await cache.get(key, 100, onMiss)
+    const result2 = await cache.get(key, 100)
     expect(result2).to.deep.equal(data2)
   })
 
@@ -99,6 +102,7 @@ describe('Leprechaun Cache (integration)', () => {
     }
 
     const key = 'key'
+    const onMiss = sandbox.stub().resolves(data1)
 
     const cache = new LeprechaunCache({
       hardTTL: 10000,
@@ -106,16 +110,16 @@ describe('Leprechaun Cache (integration)', () => {
       spinMs: 50,
       lockTTL: 1000,
       cacheStore,
-      returnStale: true
+      returnStale: true,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    const result = await cache.get(key, 100, onMiss)
+    const result = await cache.get(key, 100)
     expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
     await delay(100) //delay for the ttl
-    const result2 = await cache.get(key, 100, onMiss)
+    const result2 = await cache.get(key, 100)
     expect(result2).to.deep.equal(data1)
 
     await delay(100) //short delay to allow the async update to process
@@ -131,6 +135,15 @@ describe('Leprechaun Cache (integration)', () => {
     }
 
     const key = 'key'
+    const onMissStub = sandbox.stub().resolves(data1)
+    let delayMs = 0
+
+    const onMiss = async (k: string) => {
+      if (delayMs) {
+        await delay(delayMs)
+      }
+      return onMissStub(k)
+    }
 
     const cache = new LeprechaunCache({
       hardTTL: 10000,
@@ -138,25 +151,22 @@ describe('Leprechaun Cache (integration)', () => {
       spinMs: 50,
       lockTTL: 1000,
       cacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    await cache.get(key, 100, onMiss)
+    await cache.get(key, 100)
     await delay(100) //delay for the ttl
-
-    const onMiss2 = sandbox.stub().resolves(data2)
-    const onMissDelayed = async (k: string): Promise<Cacheable> => {
-      await delay(80)
-      return onMiss2(k)
-    }
+    delayMs = 80
+    onMissStub.reset()
+    onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100, onMissDelayed), cache.get(key, 100, onMissDelayed)])
+    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
 
     expect(results[0]).to.deep.equal(data2)
     expect(results[1]).to.deep.equal(data2)
-    expect(onMiss2).calledOnce
+    expect(onMissStub).calledOnce
   })
 
   it('should return the stale version (with returnStale true) of the data for parallel calls, while the latest version is updating', async () => {
@@ -166,11 +176,14 @@ describe('Leprechaun Cache (integration)', () => {
     const data2 = {
       some: 'new data'
     }
-    const onMiss = sandbox.stub().resolves(data1)
-    const onMiss2 = sandbox.stub().resolves(data2)
-    const onMissDelayed = async (key): Promise<Cacheable> => {
-      await delay(40)
-      return onMiss2(key)
+    const onMissStub = sandbox.stub().resolves(data1)
+    let delayMs = 0
+
+    const onMiss = async (k: string) => {
+      if (delayMs) {
+        await delay(delayMs)
+      }
+      return onMissStub(k)
     }
 
     const key = 'key'
@@ -181,15 +194,19 @@ describe('Leprechaun Cache (integration)', () => {
       spinMs: 50,
       lockTTL: 1000,
       cacheStore,
-      returnStale: true
+      returnStale: true,
+      onMiss
     })
 
     //initial population:
-    await cache.get(key, 100, onMiss)
+    await cache.get(key, 100)
     await delay(100) //delay for the ttl
+    delayMs = 80
+    onMissStub.reset()
+    onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100, onMissDelayed), cache.get(key, 100, onMissDelayed)])
+    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
 
     //we expect both results to be data1, since data2 hasn't updated yet
     expect(results[0]).to.deep.equal(data1)
@@ -197,10 +214,10 @@ describe('Leprechaun Cache (integration)', () => {
 
     //wait for the update to resolve:
     await delay(100) //delay for the ttl
+    expect(onMissStub).calledOnce
 
     //now it should be updated:
-    const results2 = await cache.get(key, 100, onMissDelayed)
+    const results2 = await cache.get(key, 100)
     expect(results2).to.deep.equal(data2)
-    expect(onMiss2).calledOnce
   })
 })

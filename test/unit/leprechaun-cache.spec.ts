@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { CacheStore, Cacheable, LeprechaunCache } from '../../src'
+import { CacheStore, LeprechaunCache } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
 import sinonChai from 'sinon-chai'
@@ -61,20 +61,21 @@ describe('Leprechaun Cache', () => {
     }
     const key = 'key'
 
+    const onMiss = sandbox.stub().resolves(data)
     const cache = new LeprechaunCache({
-      hardTTL: 1000,
+      hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore: mockCacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
-    const onMiss = sandbox.stub().resolves(data)
-    const result = await cache.get(key, 100, onMiss)
-    expect(result).to.equal(data)
+    const result = await cache.get(key, 100)
+    expect(result).to.deep.equal(data)
 
-    const result2 = await cache.get(key, 100, onMiss)
-    expect(result2).to.equal(data)
+    const result2 = await cache.get(key, 100)
+    expect(result2).to.deep.equal(data)
     expect(onMiss).calledOnce
   })
 
@@ -88,23 +89,25 @@ describe('Leprechaun Cache', () => {
 
     const key = 'key'
 
+    const onMiss = sandbox.stub().resolves(data1)
+
     const cache = new LeprechaunCache({
-      hardTTL: 1000,
+      hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore: mockCacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    const result = await cache.get(key, 100, onMiss)
-    expect(result).to.equal(data1)
+    const result = await cache.get(key, 100)
+    expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
-    await delay(100) //delay for the ttl
-    const result2 = await cache.get(key, 100, onMiss)
-    expect(result2).to.equal(data2)
+    await delay(200) //delay for the ttl
+    const result2 = await cache.get(key, 100)
+    expect(result2).to.deep.equal(data2)
   })
 
   it('should call onMiss a second time but return the stale results (when returnStale is true) if the ttl is expired', async () => {
@@ -116,26 +119,27 @@ describe('Leprechaun Cache', () => {
     }
 
     const key = 'key'
+    const onMiss = sandbox.stub().resolves(data1)
 
     const cache = new LeprechaunCache({
-      hardTTL: 1000,
+      hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore: mockCacheStore,
-      returnStale: true
+      returnStale: true,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    const result = await cache.get(key, 100, onMiss)
-    expect(result).to.equal(data1)
+    const result = await cache.get(key, 100)
+    expect(result).to.deep.equal(data1)
 
     onMiss.resolves(data2)
     await delay(100) //delay for the ttl
-    const result2 = await cache.get(key, 100, onMiss)
-    expect(result2).to.equal(data1)
+    const result2 = await cache.get(key, 100)
+    expect(result2).to.deep.equal(data1)
 
-    await delay(1) //short delay to allow the async update to process
+    await delay(100) //short delay to allow the async update to process
     expect(onMiss).calledTwice
   })
 
@@ -148,32 +152,38 @@ describe('Leprechaun Cache', () => {
     }
 
     const key = 'key'
+    const onMissStub = sandbox.stub().resolves(data1)
+    let delayMs = 0
+
+    const onMiss = async (k: string) => {
+      if (delayMs) {
+        await delay(delayMs)
+      }
+      return onMissStub(k)
+    }
 
     const cache = new LeprechaunCache({
-      hardTTL: 1000,
+      hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore: mockCacheStore,
-      returnStale: false
+      returnStale: false,
+      onMiss
     })
 
-    const onMiss = sandbox.stub().resolves(data1)
-    await cache.get(key, 100, onMiss)
+    await cache.get(key, 100)
     await delay(100) //delay for the ttl
-
-    const onMiss2 = sandbox.stub().resolves(data2)
-    const onMissDelayed = async (k): Promise<Cacheable> => {
-      await delay(80)
-      return onMiss2(k)
-    }
+    delayMs = 80
+    onMissStub.reset()
+    onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100, onMissDelayed), cache.get(key, 100, onMissDelayed)])
+    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
 
-    expect(results[0]).to.equal(data2)
-    expect(results[1]).to.equal(data2)
-    expect(onMiss2).calledOnce
+    expect(results[0]).to.deep.equal(data2)
+    expect(results[1]).to.deep.equal(data2)
+    expect(onMissStub).calledOnce
   })
 
   it('should return the stale version (with returnStale true) of the data for parallel calls, while the latest version is updating', async () => {
@@ -183,41 +193,48 @@ describe('Leprechaun Cache', () => {
     const data2 = {
       some: 'new data'
     }
-    const onMiss = sandbox.stub().resolves(data1)
-    const onMiss2 = sandbox.stub().resolves(data2)
-    const onMissDelayed = async (key): Promise<Cacheable> => {
-      await delay(40)
-      return onMiss2(key)
+    const onMissStub = sandbox.stub().resolves(data1)
+    let delayMs = 0
+
+    const onMiss = async (k: string) => {
+      if (delayMs) {
+        await delay(delayMs)
+      }
+      return onMissStub(k)
     }
 
     const key = 'key'
 
     const cache = new LeprechaunCache({
-      hardTTL: 1000,
+      hardTTL: 10000,
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
       cacheStore: mockCacheStore,
-      returnStale: true
+      returnStale: true,
+      onMiss
     })
 
     //initial population:
-    await cache.get(key, 100, onMiss)
+    await cache.get(key, 100)
     await delay(100) //delay for the ttl
+    delayMs = 80
+    onMissStub.reset()
+    onMissStub.resolves(data2)
 
     //call it twice:
-    const results = await Promise.all([cache.get(key, 100, onMissDelayed), cache.get(key, 100, onMissDelayed)])
+    const results = await Promise.all([cache.get(key, 100), cache.get(key, 100)])
 
     //we expect both results to be data1, since data2 hasn't updated yet
-    expect(results[0]).to.equal(data1)
-    expect(results[1]).to.equal(data1)
+    expect(results[0]).to.deep.equal(data1)
+    expect(results[1]).to.deep.equal(data1)
 
     //wait for the update to resolve:
     await delay(100) //delay for the ttl
+    expect(onMissStub).calledOnce
 
     //now it should be updated:
-    const results2 = await cache.get(key, 100, onMissDelayed)
-    expect(results2).to.equal(data2)
-    expect(onMiss2).calledOnce
+    const results2 = await cache.get(key, 100)
+    expect(results2).to.deep.equal(data2)
   })
 })

@@ -1,4 +1,4 @@
-import { CacheStore, CacheItem } from '../types'
+import { CacheStore, CacheItem, Cacheable } from '../types'
 import { RedisClient } from 'redis'
 import { v4 as uuidV4 } from 'uuid'
 
@@ -6,7 +6,7 @@ function lockKey(key: string): string {
   return `LOCK-${key}`
 }
 
-export class RedisCacheStore<T> implements CacheStore<T> {
+export class RedisCacheStore<T extends Cacheable = Cacheable> implements CacheStore<T> {
   public constructor(private redisClient: RedisClient) {}
 
   public get(key: string): Promise<CacheItem<T> | null> {

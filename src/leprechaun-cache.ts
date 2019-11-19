@@ -13,7 +13,7 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
-export class LeprechaunCache<T = Cacheable> {
+export class LeprechaunCache<T extends Cacheable = Cacheable> {
   private hardTTL: number
   private lockTTL: number
   private returnStale: boolean
@@ -21,6 +21,7 @@ export class LeprechaunCache<T = Cacheable> {
   private cacheStore: CacheStore<T>
   private spinMs: number
   private inProgress = new Map<string, Promise<T>>()
+  private onMiss: OnCacheMiss<T>
 
   public constructor({
     hardTTL,
@@ -28,7 +29,8 @@ export class LeprechaunCache<T = Cacheable> {
     waitForUnlockMs,
     cacheStore,
     spinMs,
-    returnStale
+    returnStale,
+    onMiss
   }: LeprechaunCacheOptions<T>) {
     this.hardTTL = hardTTL
     this.lockTTL = lockTTL
@@ -36,6 +38,7 @@ export class LeprechaunCache<T = Cacheable> {
     this.spinMs = spinMs
     this.cacheStore = cacheStore
     this.returnStale = returnStale
+    this.onMiss = onMiss
   }
 
   public async clear(key: string): Promise<boolean> {
@@ -44,11 +47,11 @@ export class LeprechaunCache<T = Cacheable> {
     return result
   }
 
-  public async get(key: string, ttlInMilliseconds: number, onMiss: OnCacheMiss<T>): Promise<T> {
+  public async get(key: string, ttlInMilliseconds: number): Promise<T> {
     let promise = this.inProgress.get(key)
     if (promise === undefined) {
       try {
-        promise = this.doGet(key, ttlInMilliseconds, onMiss)
+        promise = this.doGet(key, ttlInMilliseconds)
         this.inProgress.set(key, promise)
         return await promise
       } finally {
@@ -58,13 +61,13 @@ export class LeprechaunCache<T = Cacheable> {
     return promise
   }
 
-  private async doGet(key: string, ttl: number, onMiss: OnCacheMiss<T>): Promise<T> {
+  private async doGet(key: string, ttl: number): Promise<T> {
     const result = await this.cacheStore.get(key)
     if (!result) {
-      return this.updateCache(key, onMiss, ttl, true)
+      return this.updateCache(key, ttl, true)
     }
     if (result.expiresAt < Date.now()) {
-      const update = this.updateCache(key, onMiss, ttl, !this.returnStale)
+      const update = this.updateCache(key, ttl, !this.returnStale)
       if (this.returnStale) {
         //since we'll be returning the stale data
         //ignore any errors (most likely couldn't get the lock - another process is updating
@@ -102,7 +105,7 @@ export class LeprechaunCache<T = Cacheable> {
         }
   }
 
-  private async updateCache(key: string, onMiss: OnCacheMiss<T>, ttl: number, doSpinLock: boolean): Promise<T> {
+  private async updateCache(key: string, ttl: number, doSpinLock: boolean): Promise<T> {
     const lock = await this.getLock(key, doSpinLock)
 
     if (!lock.lockId) {
@@ -112,13 +115,13 @@ export class LeprechaunCache<T = Cacheable> {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
       const result = await this.cacheStore.get(key)
       if (result && result.data) {
-        this.cacheStore.unlock(key, lock.lockId)
+        await this.cacheStore.unlock(key, lock.lockId)
         return result.data
       }
     }
 
     try {
-      const data = await onMiss(key)
+      const data = await this.onMiss(key)
 
       this.cacheStore.set(
         key,
