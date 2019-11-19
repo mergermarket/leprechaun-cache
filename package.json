@@ -1,12 +1,16 @@
 {
-  "name": "leprechaun-cache",
+  "name": "@acuris/leprechaun-cache",
   "version": "0.0.1",
   "private": false,
   "description": "Caching library that supports double checked caching and stale returns to avoid stampede and slow responses",
   "keywords": [
+    "acuris",
+    "cache",
+    "redis",
+    "stale",
     "leprechaun-cache"
   ],
-  "license": "UNLICENSED",
+  "license": "MIT",
   "homepage": "https://github.com/mergermarket/leprechaun-cache#readme",
   "repository": {
     "repository": "git",
