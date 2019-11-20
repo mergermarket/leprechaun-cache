@@ -1,4 +1,4 @@
-import { CacheStore, Cacheable, OnCacheMiss, LeprechaunCacheOptions } from './types'
+import { CacheStore, Cacheable, OnCacheMiss, LeprechaunCacheOptions, CacheItem } from './types'
 
 interface LockResult {
   lockId: string
@@ -129,16 +129,30 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
 
     const data = await this.onMiss(key)
 
-    const cacheData = {
-      data,
-      expiresAt: Date.now() + ttl
-    }
-
-    this.cacheStore
-      .set(key, cacheData, this.hardTTL)
-      .then(() => this.cacheStore.unlock(key, lock.lockId))
-      .catch(this.onBackgroundError)
+    //Set and unlock in the actual cache asynchronously
+    this.setAndUnlock(
+      key,
+      {
+        data,
+        expiresAt: Date.now() + ttl
+      },
+      lock
+    )
 
     return data
+  }
+
+  private async setAndUnlock(key: string, cacheData: CacheItem<T>, lock: LockResult) {
+    try {
+      await this.cacheStore.set(key, cacheData, this.hardTTL)
+    } catch (e) {
+      this.onBackgroundError(e)
+    }
+    //unlock in separate try-catch block so that unlock will be attempted even if set fails
+    try {
+      await this.cacheStore.unlock(key, lock.lockId)
+    } catch (e) {
+      this.onBackgroundError(e)
+    }
   }
 }
