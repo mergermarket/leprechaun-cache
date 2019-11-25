@@ -237,4 +237,33 @@ describe('Leprechaun Cache', () => {
     const results2 = await cache.get(key, 80)
     expect(results2).to.deep.equal(data2)
   })
+
+  it('should save and return undefined and null and false correctly', async () => {
+    const onMissStub = sandbox.stub()
+    onMissStub.withArgs('key-undefined').resolves(undefined)
+    onMissStub.withArgs('key-null').resolves(null)
+    onMissStub.withArgs('key-false').resolves(false)
+
+    const cache = new LeprechaunCache({
+      hardTTL: 10000,
+      waitForUnlockMs: 1000,
+      spinMs: 50,
+      lockTTL: 1000,
+      cacheStore: mockCacheStore,
+      returnStale: true,
+      onMiss: onMissStub
+    })
+
+    const result1 = await cache.get('key-undefined', 80)
+    expect(result1).to.equal(undefined)
+    expect(await cache.get('key-undefined', 80)).to.equal(undefined)
+
+    const result2 = await cache.get('key-null', 80)
+    expect(result2).to.equal(null)
+    expect(await cache.get('key-null', 80)).to.equal(null)
+
+    const result3 = await cache.get('key-false', 80)
+    expect(result3).to.equal(false)
+    expect(await cache.get('key-false', 80)).to.equal(false)
+  })
 })
