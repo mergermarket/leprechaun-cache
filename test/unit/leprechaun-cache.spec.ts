@@ -243,6 +243,8 @@ describe('Leprechaun Cache', () => {
     onMissStub.withArgs('key-undefined').resolves(undefined)
     onMissStub.withArgs('key-null').resolves(null)
     onMissStub.withArgs('key-false').resolves(false)
+    onMissStub.withArgs('key-empty-string').resolves('')
+    onMissStub.withArgs('key-zero').resolves(0)
 
     const cache = new LeprechaunCache({
       hardTTL: 10000,
@@ -265,5 +267,13 @@ describe('Leprechaun Cache', () => {
     const result3 = await cache.get('key-false', 80)
     expect(result3).to.equal(false)
     expect(await cache.get('key-false', 80)).to.equal(false)
+
+    const result4 = await cache.get('key-empty-string', 80)
+    expect(result4).to.equal('')
+    expect(await cache.get('key-empty-string', 80)).to.equal('')
+
+    const result5 = await cache.get('key-zero', 80)
+    expect(result5).to.equal(0)
+    expect(await cache.get('key-zero', 80)).to.equal(0)
   })
 })
