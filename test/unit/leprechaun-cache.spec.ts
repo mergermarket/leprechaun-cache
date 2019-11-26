@@ -276,4 +276,24 @@ describe('Leprechaun Cache', () => {
     expect(result5).to.equal(0)
     expect(await cache.get('key-zero', 80)).to.equal(0)
   })
+
+  it('prefixes the underlying cache storage calls but not the onMiss call', async () => {
+    const onMissStub = sandbox.stub().resolves('data')
+
+    const cache = new LeprechaunCache({
+      keyPrefix: 'prefix-',
+      hardTTL: 10000,
+      waitForUnlockMs: 1000,
+      spinMs: 50,
+      lockTTL: 1000,
+      cacheStore: mockCacheStore,
+      returnStale: true,
+      onMiss: onMissStub
+    })
+
+    await cache.get('key', 80)
+
+    expect(onMissStub).to.have.been.calledWith('key')
+    expect(mockCacheItems['prefix-key']).to.exist
+  })
 })

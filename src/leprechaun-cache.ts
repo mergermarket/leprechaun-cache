@@ -59,7 +59,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     let promise = this.inProgress.get(key)
     if (promise === undefined) {
       try {
-        promise = this.doGet(this.keyPrefix + key, ttlInMilliseconds)
+        promise = this.doGet(key, ttlInMilliseconds)
         this.inProgress.set(key, promise)
         return await promise
       } finally {
@@ -70,7 +70,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
   }
 
   private async doGet(key: string, ttl: number): Promise<T> {
-    const result = await this.cacheStore.get(key)
+    const result = await this.cacheStore.get(this.keyPrefix + key)
     if (!result) {
       return this.updateCache(key, ttl, true)
     }
@@ -92,7 +92,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     }
     let i = 0
     do {
-      lock.lockId = (await this.cacheStore.lock(key, this.lockTTL)) || ''
+      lock.lockId = (await this.cacheStore.lock(this.keyPrefix + key, this.lockTTL)) || ''
       if (lock.lockId) {
         break
       }
@@ -106,7 +106,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return doSpinLock
       ? this.spinLock(key)
       : {
-          lockId: (await this.cacheStore.lock(key, this.lockTTL)) || '',
+          lockId: (await this.cacheStore.lock(this.keyPrefix + key, this.lockTTL)) || '',
           didSpin: false
         }
   }
@@ -120,9 +120,9 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
 
     if (lock.didSpin) {
       //If we spun while getting the lock, then get the updated version (hopefully updated by another process)
-      const result = await this.cacheStore.get(key)
+      const result = await this.cacheStore.get(this.keyPrefix + key)
       if (result && result.data) {
-        await this.cacheStore.unlock(key, lock.lockId)
+        await this.cacheStore.unlock(this.keyPrefix + key, lock.lockId)
         return result.data
       }
     }
@@ -144,13 +144,13 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
 
   private async setAndUnlock(key: string, cacheData: CacheItem<T>, lock: LockResult) {
     try {
-      await this.cacheStore.set(key, cacheData, this.hardTTL)
+      await this.cacheStore.set(this.keyPrefix + key, cacheData, this.hardTTL)
     } catch (e) {
       this.onBackgroundError(e)
     }
     //unlock in separate try-catch block so that unlock will be attempted even if set fails
     try {
-      await this.cacheStore.unlock(key, lock.lockId)
+      await this.cacheStore.unlock(this.keyPrefix + key, lock.lockId)
     } catch (e) {
       this.onBackgroundError(e)
     }
