@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { CacheStore, LeprechaunCache } from '../../src'
+import { LeprechaunCache, MemoryCacheStore } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
 import sinonChai from 'sinon-chai'
@@ -7,36 +7,7 @@ import sinonChai from 'sinon-chai'
 chai.use(sinonChai)
 const expect = chai.expect
 
-let mockCacheItems = {}
-let mockLocks = {}
-const mockCacheStore: CacheStore = {
-  get: async key => {
-    return mockCacheItems[key]
-  },
-  set: async (key, data) => {
-    mockCacheItems[key] = data
-    return true
-  },
-  del: async key => {
-    delete mockCacheItems[key]
-    return true
-  },
-  lock: async key => {
-    const keyId = `${Math.floor(Math.random() * 1000)}`
-    if (!mockLocks[key]) {
-      mockLocks[key] = keyId
-      return keyId
-    }
-    return false
-  },
-  unlock: async (key, keyId) => {
-    if (!mockLocks[key] || mockLocks[key] !== keyId) {
-      return false
-    }
-    delete mockLocks[key]
-    return true
-  }
-}
+const memoryCacheStore = new MemoryCacheStore()
 
 function delay(durationMs: number): Promise<void> {
   return new Promise(resolve => {
@@ -51,8 +22,7 @@ describe('Leprechaun Cache', () => {
 
   afterEach(() => {
     sandbox.restore()
-    mockCacheItems = {}
-    mockLocks = {}
+    memoryCacheStore.reset()
   })
 
   it('should store the data by calling onMiss and then return the data when called again', async () => {
@@ -67,7 +37,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: false,
       onMiss
     })
@@ -96,7 +66,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: false,
       onMiss
     })
@@ -126,7 +96,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: true,
       onMiss
     })
@@ -167,7 +137,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: false,
       onMiss
     })
@@ -210,7 +180,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: true,
       onMiss
     })
@@ -251,7 +221,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: true,
       onMiss: onMissStub
     })
@@ -286,7 +256,7 @@ describe('Leprechaun Cache', () => {
       waitForUnlockMs: 1000,
       spinMs: 50,
       lockTTL: 1000,
-      cacheStore: mockCacheStore,
+      cacheStore: memoryCacheStore,
       returnStale: true,
       onMiss: onMissStub
     })
@@ -294,6 +264,7 @@ describe('Leprechaun Cache', () => {
     await cache.get('key', 80)
 
     expect(onMissStub).to.have.been.calledWith('key')
-    expect(mockCacheItems['prefix-key']).to.exist
+
+    expect(await memoryCacheStore.get('prefix-key')).to.not.be.null
   })
 })

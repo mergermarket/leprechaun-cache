@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { CacheStore, LeprechaunCache } from '../../src'
+import { RedisCacheStore, LeprechaunCache } from '../../src'
 import * as chai from 'chai'
 import * as sinon from 'sinon'
 import sinonChai from 'sinon-chai'
 import { RedisClient } from 'redis'
-import { RedisCacheStore } from '../../src/storage/redis-cache-store'
 
 chai.use(sinonChai)
 const expect = chai.expect
 const redisClient = new RedisClient({})
-const cacheStore: CacheStore = new RedisCacheStore(redisClient)
+const cacheStore = new RedisCacheStore(redisClient)
 
 function delay(durationMs: number): Promise<void> {
   return new Promise(resolve => {

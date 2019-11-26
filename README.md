@@ -8,7 +8,7 @@ If `returnStale` is true, then all requests for the same key will return a stale
 
 If `returnStale` is false (or there is nothing already in the cache), then all requests for that key will wait until the update is complete, and then return the updated version from the cache
 
-Currently only supports redis (via node_redis) as a backend store, but it is easy to create your own store as long as it is able to support distributed locking
+Currently only supports redis (via node_redis) as a backend store and a simple in-memory store for testing, but it is easy to create your own store as long as it is able to support distributed locking
 
 Usage:
 
