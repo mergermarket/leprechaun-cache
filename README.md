@@ -23,17 +23,18 @@ const cacheStore = new RedisCacheStore(
 
 const myObjectCache = new LeprechaunCache({
   keyPrefix: 'MyObject',
+  softTtlMs: 1000,
   cacheStore,
   onMiss: getMyObjectFromDb,
-  hardTTL: 60 * 1000 * 1000,
+  hardTtlMs: 60 * 1000 * 1000,
   waitForUnlockMs: 3000,
-  lockTTL: 6000,
+  lockTtlMs: 6000,
   spinMs: 50,
   returnStale: true
   onBackgroundError: e => { console.error(e); }
 })
 
-const myObject = myObjectCache.get('object-id', 1000) //get the object with key 'object-id'. If it doesn't exist, onMiss will be called, and the data will be stored in the cache with a soft TTL of 1000ms
+const myObject = myObjectCache.get('object-id') //get the object with key 'object-id'. If it doesn't exist, onMiss will be called, and the data will be stored in the cache with a soft TTL of 1000ms
 ```
 
 ## Constructor Options
@@ -41,10 +42,11 @@ const myObject = myObjectCache.get('object-id', 1000) //get the object with key 
 | Option            | type        | Description                                                                                                                                                                                                                                                              |
 | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | keyPrefix         | string?     | Optional prefix that will be added to all keys in the underlying store                                                                                                                                                                                                   |
+| softTtlMs         | number (ms) | Soft TTL (in ms) for storing the items in the cache                                                                                                                                                                                                                      |
 | cacheStore        | CacheStore  | the underlying KV store to use. Must implement CacheStore interface. A node_redis implementation is included.                                                                                                                                                            |
 | onMiss            | function    | callback function that will be called when a value is either not in the cache, or the soft TTL has expired.                                                                                                                                                              |
-| hardTTL           | number (ms) | the TTL (in ms) to pass to the cacheStore set method - values should hard-expire after this and should no longer be retrievable from the store                                                                                                                           |
-| lockTTL           | number (ms) | the TTL (in ms) to pass to the cacheStore lock method. While the onMiss function is called, a lock will be acquired. This defines how long the lock should last. This should be longer than the longest time you expect your onMiss handler to take                      |
+| hardTtlMs         | number (ms) | the TTL (in ms) to pass to the cacheStore set method - values should hard-expire after this and should no longer be retrievable from the store                                                                                                                           |
+| lockTtlMs         | number (ms) | the TTL (in ms) to pass to the cacheStore lock method. While the onMiss function is called, a lock will be acquired. This defines how long the lock should last. This should be longer than the longest time you expect your onMiss handler to take                      |
 | waitForUnlockMs   | number (ms) | if the onMiss function is locked, how long should the client wait for it to unlock before giving up. This is relevant when returnStale is false, or when there is no stale data in the cache                                                                             |
 | spinMs            | number (ms) | How many milliseconds to wait before re-attempting to acquire the lock                                                                                                                                                                                                   |
 | returnStale       | boolean     | if this is true, when the value is expired (by the soft-ttl, set per-key), the library will return the stale result from the cache while updating the cache in the background. The next attempt to get, after this update has resolved, will then return the new version |

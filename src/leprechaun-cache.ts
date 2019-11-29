@@ -16,8 +16,9 @@ function delay(durationMs: number): Promise<void> {
 const defaultBackgroundErrorHandler = (_: Error) => {}
 
 export class LeprechaunCache<T extends Cacheable = Cacheable> {
-  private hardTTL: number
-  private lockTTL: number
+  private softTtlMs: number
+  private hardTtlMs: number
+  private lockTtlMs: number
   private returnStale: boolean
   private spinWaitCount: number
   private cacheStore: CacheStore<T>
@@ -29,8 +30,9 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
 
   public constructor({
     keyPrefix = '',
-    hardTTL,
-    lockTTL,
+    softTtlMs,
+    hardTtlMs,
+    lockTtlMs,
     waitForUnlockMs,
     cacheStore,
     spinMs,
@@ -38,8 +40,9 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     onMiss,
     onBackgroundError = defaultBackgroundErrorHandler
   }: LeprechaunCacheOptions<T>) {
-    this.hardTTL = hardTTL
-    this.lockTTL = lockTTL
+    this.hardTtlMs = hardTtlMs
+    this.softTtlMs = softTtlMs
+    this.lockTtlMs = lockTtlMs
     this.spinWaitCount = Math.ceil(waitForUnlockMs / spinMs)
     this.spinMs = spinMs
     this.cacheStore = cacheStore
@@ -55,11 +58,11 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return result
   }
 
-  public async get(key: string, ttlInMilliseconds: number): Promise<T> {
+  public async get(key: string): Promise<T> {
     let promise = this.inProgress.get(key)
     if (promise === undefined) {
       try {
-        promise = this.doGet(key, ttlInMilliseconds)
+        promise = this.doGet(key, this.softTtlMs)
         this.inProgress.set(key, promise)
         return await promise
       } finally {
@@ -92,7 +95,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     }
     let i = 0
     do {
-      lock.lockId = (await this.cacheStore.lock(this.keyPrefix + key, this.lockTTL)) || ''
+      lock.lockId = (await this.cacheStore.lock(this.keyPrefix + key, this.lockTtlMs)) || ''
       if (lock.lockId) {
         break
       }
@@ -106,7 +109,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return doSpinLock
       ? this.spinLock(key)
       : {
-          lockId: (await this.cacheStore.lock(this.keyPrefix + key, this.lockTTL)) || '',
+          lockId: (await this.cacheStore.lock(this.keyPrefix + key, this.lockTtlMs)) || '',
           didSpin: false
         }
   }
@@ -144,7 +147,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
 
   private async setAndUnlock(key: string, cacheData: CacheItem<T>, lock: LockResult) {
     try {
-      await this.cacheStore.set(this.keyPrefix + key, cacheData, this.hardTTL)
+      await this.cacheStore.set(this.keyPrefix + key, cacheData, this.hardTtlMs)
     } catch (e) {
       this.onBackgroundError(e)
     }

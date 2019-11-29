@@ -17,8 +17,9 @@ export interface CacheStore<T extends Cacheable = Cacheable> {
 
 export interface LeprechaunCacheOptions<T extends Cacheable = Cacheable> {
   keyPrefix?: string
-  hardTTL: number
-  lockTTL: number
+  softTtlMs: number
+  hardTtlMs: number
+  lockTtlMs: number
   waitForUnlockMs: number
   cacheStore: CacheStore<T>
   spinMs: number
