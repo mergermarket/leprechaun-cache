@@ -274,4 +274,30 @@ describe('Leprechaun Cache', () => {
 
     expect(await memoryCacheStore.get('prefix-key')).to.not.be.null
   })
+
+  it('should refresh the cache when refresh is called when not yet expired', async () => {
+    const onMissStub = sandbox.stub()
+    const res1 = { res: 1 }
+    const res2 = { res: 2 }
+    onMissStub.onCall(0).resolves(res1)
+    onMissStub.onCall(1).resolves(res2)
+
+    const cache = new LeprechaunCache({
+      softTtlMs: 10000,
+      hardTtlMs: 10000,
+      waitForUnlockMs: 1000,
+      spinMs: 50,
+      lockTtlMs: 1000,
+      cacheStore: memoryCacheStore,
+      returnStale: true,
+      onMiss: onMissStub
+    })
+
+    const result1 = await cache.get('key')
+    expect(result1).to.deep.equal(res1)
+
+    await cache.refresh('key')
+    const result2 = await cache.get('key')
+    expect(result2).to.deep.equal(res2)
+  })
 })
