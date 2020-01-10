@@ -72,6 +72,10 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return promise
   }
 
+  public async refresh(key: string): Promise<T> {
+    return this.updateCache(key, this.softTtlMs, true)
+  }
+
   private async doGet(key: string, ttl: number): Promise<T> {
     const result = await this.cacheStore.get(this.keyPrefix + key)
     if (!result) {

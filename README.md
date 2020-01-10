@@ -34,7 +34,11 @@ const myObjectCache = new LeprechaunCache({
   onBackgroundError: e => { console.error(e); }
 })
 
-const myObject = myObjectCache.get('object-id') //get the object with key 'object-id'. If it doesn't exist, onMiss will be called, and the data will be stored in the cache with a soft TTL of 1000ms
+const myObject = await myObjectCache.get('object-id') //get the object with key 'object-id'. If it doesn't exist, onMiss will be called, and the data will be stored in the cache with a soft TTL of 1000ms
+
+const myObject = await myObjectCache.refresh('object-id') //Force refresh (calls the onMiss handler and updates the cache) and return the result
+
+await myObjectCache.clear('object-id') //Remove the item from the cache
 ```
 
 ## Constructor Options

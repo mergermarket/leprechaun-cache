@@ -50,5 +50,8 @@
     "**/.eslintcache": true,
     "**/.cache": true,
     "**/.fuse_hidden*": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
   }
 }
