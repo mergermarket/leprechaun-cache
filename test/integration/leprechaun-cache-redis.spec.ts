@@ -128,6 +128,73 @@ describe('Leprechaun Cache (integration)', () => {
     expect(onMiss).calledTwice
   })
 
+  it('will return the update if it takes less time than the waitTimeMs handler to resolve', async () => {
+    const data1 = {
+      some: 'data'
+    }
+    const data2 = {
+      some: 'new data'
+    }
+
+    const key = 'key'
+    const onMiss = sandbox.stub().resolves(data1)
+
+    const cache = new LeprechaunCache({
+      softTtlMs: 80,
+      hardTtlMs: 10000,
+      waitForUnlockMs: 1000,
+      spinMs: 50,
+      lockTtlMs: 1000,
+      cacheStore,
+      returnStale: true,
+      waitTimeMs: 50,
+      onMiss
+    })
+
+    const result = await cache.get(key)
+    expect(result).to.deep.equal(data1)
+    await delay(100) //delay for the ttl
+
+    onMiss.resolves(data2)
+
+    const result2 = await cache.get(key)
+    expect(result2).to.deep.equal(data2)
+  })
+
+  it('will return the stale data if it takes longer time than the waitTimeMs handler to resolve', async () => {
+    const data1 = {
+      some: 'data'
+    }
+    const data2 = {
+      some: 'new data'
+    }
+
+    const key = 'key'
+    const onMiss = sandbox.stub().resolves(data1)
+
+    const cache = new LeprechaunCache({
+      softTtlMs: 80,
+      hardTtlMs: 10000,
+      waitForUnlockMs: 1000,
+      spinMs: 50,
+      lockTtlMs: 1000,
+      cacheStore,
+      returnStale: true,
+      waitTimeMs: 50,
+      onMiss
+    })
+
+    const result = await cache.get(key)
+    expect(result).to.deep.equal(data1)
+    await delay(100) //delay for the ttl
+
+    onMiss.returns(new Promise(resolve => setTimeout(resolve, 100, data2)))
+
+    const result2 = await cache.get(key)
+    expect(result2).to.deep.equal(data1)
+    await delay(100) //short delay to allow the background update to finish
+  })
+
   it('should spin-lock until the new results are available if the cache is stale and another process is updating it (returnStale false)', async () => {
     const data1 = {
       some: 'data'
