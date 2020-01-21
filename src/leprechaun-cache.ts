@@ -19,6 +19,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
   private softTtlMs: number
   private hardTtlMs: number
   private lockTtlMs: number
+  private waitTimeMs: number
   private returnStale: boolean
   private spinWaitCount: number
   private cacheStore: CacheStore<T>
@@ -33,6 +34,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     softTtlMs,
     hardTtlMs,
     lockTtlMs,
+    waitTimeMs = 0,
     waitForUnlockMs,
     cacheStore,
     spinMs,
@@ -43,6 +45,7 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     this.hardTtlMs = hardTtlMs
     this.softTtlMs = softTtlMs
     this.lockTtlMs = lockTtlMs
+    this.waitTimeMs = waitTimeMs
     this.spinWaitCount = Math.ceil(waitForUnlockMs / spinMs)
     this.spinMs = spinMs
     this.cacheStore = cacheStore
@@ -81,15 +84,35 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     if (!result) {
       return this.updateCache(key, ttl, true)
     }
-    if (result.expiresAt < Date.now()) {
-      const update = this.updateCache(key, ttl, !this.returnStale)
-      if (this.returnStale) {
-        update.catch(this.onBackgroundError)
-      } else {
-        return update
-      }
+
+    if (result.expiresAt > Date.now()) {
+      return result.data
     }
-    return result.data
+
+    const update = this.updateCache(key, ttl, !this.returnStale)
+
+    if (!this.returnStale) {
+      return update
+    }
+
+    return this.race(update, result.data)
+  }
+
+  private async race(update: Promise<T>, staleData: T): Promise<T> {
+    update.catch(e => {
+      this.onBackgroundError(e)
+      return staleData
+    })
+
+    if (this.waitTimeMs <= 0) {
+      return staleData
+    }
+
+    const returnStaleAfterWaitTime: Promise<T> = new Promise(resolve => {
+      setTimeout(resolve, this.waitTimeMs, staleData)
+    })
+
+    return Promise.race([update, returnStaleAfterWaitTime])
   }
 
   private async spinLock(key: string): Promise<LockResult> {

@@ -20,6 +20,7 @@ export interface LeprechaunCacheOptions<T extends Cacheable = Cacheable> {
   softTtlMs: number
   hardTtlMs: number
   lockTtlMs: number
+  waitTtlMs?: number
   waitForUnlockMs: number
   cacheStore: CacheStore<T>
   spinMs: number
