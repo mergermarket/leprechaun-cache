@@ -1,6 +1,6 @@
 {
   "name": "@acuris/leprechaun-cache",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": false,
   "description": "Caching library that supports double checked caching and stale returns to avoid stampede and slow responses",
   "keywords": [
