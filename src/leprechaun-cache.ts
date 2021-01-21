@@ -156,20 +156,31 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
         return result.data
       }
     }
+    try {
+      const data = await this.onMiss(key)
+      //Set and unlock asynchronously so we don't delay the response
+      this.setAndUnlock(
+        key,
+        {
+          data,
+          expiresAt: Date.now() + ttl
+        },
+        lock
+      )
 
-    const data = await this.onMiss(key)
+      return data
+    } catch (e) {
+      this.unlock(key, lock)
+      throw e
+    }
+  }
 
-    //Set and unlock in the actual cache asynchronously
-    this.setAndUnlock(
-      key,
-      {
-        data,
-        expiresAt: Date.now() + ttl
-      },
-      lock
-    )
-
-    return data
+  private async unlock(key: string, lock: LockResult) {
+    try {
+      await this.cacheStore.unlock(this.keyPrefix + key, lock.lockId)
+    } catch (e) {
+      this.onBackgroundError(e)
+    }
   }
 
   private async setAndUnlock(key: string, cacheData: CacheItem<T>, lock: LockResult) {
@@ -178,11 +189,6 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     } catch (e) {
       this.onBackgroundError(e)
     }
-    //unlock in separate try-catch block so that unlock will be attempted even if set fails
-    try {
-      await this.cacheStore.unlock(this.keyPrefix + key, lock.lockId)
-    } catch (e) {
-      this.onBackgroundError(e)
-    }
+    await this.unlock(key, lock)
   }
 }

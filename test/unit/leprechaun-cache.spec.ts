@@ -116,6 +116,32 @@ describe('Leprechaun Cache', () => {
     expect(onMiss).calledTwice
   })
 
+  it('should unlock if the onMiss handler throws an exception', async () => {
+    const key = 'key'
+    const onMiss = sandbox.stub().rejects(new Error('Error'))
+
+    const cache = new LeprechaunCache({
+      softTtlMs: 80,
+      hardTtlMs: 10000,
+      waitForUnlockMs: 10,
+      spinMs: 10,
+      lockTtlMs: 10000,
+      cacheStore: memoryCacheStore,
+      returnStale: true,
+      onMiss
+    })
+    try {
+      await cache.get(key)
+      expect(false).to.be.true //Should not reach as the exception should be rethrown
+    } catch (e) {}
+    const data = {
+      some: 'data'
+    }
+    onMiss.resolves(data)
+    const result = await cache.get('key') //If it's locked then this will fail due to the short waitForUnlockMs
+    expect(result).to.deep.equal(data)
+  })
+
   it('will return the update if it takes less time than the waitTimeMs handler to resolve', async () => {
     const data1 = {
       some: 'data'
