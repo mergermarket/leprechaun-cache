@@ -90,8 +90,12 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     }
 
     const update = this.updateCache(key, ttl).catch(e => {
-      this.onBackgroundError(e)
-      return result.data
+      if (this.returnStale) {
+        this.onBackgroundError(e)
+        return result.data
+      }
+
+      throw e
     })
 
     if (!this.returnStale) {
