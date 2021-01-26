@@ -306,6 +306,41 @@ describe('Leprechaun Cache', () => {
     expect(results2).to.deep.equal(data2)
   })
 
+  it('should return the stale version (with returnStale true) of the data for parallel calls, if the update for the latest version fails due to cache lock', async () => {
+    const data = {
+      some: 'data'
+    }
+
+    const onMiss = async (_: string) => {
+      return data
+    }
+
+    const key = 'key'
+
+    const cache = new LeprechaunCache({
+      softTtlMs: 80,
+      hardTtlMs: 10000,
+      waitForUnlockMs: 10,
+      spinMs: 50,
+      lockTtlMs: 1000,
+      cacheStore: memoryCacheStore,
+      returnStale: true,
+      onMiss,
+      waitTimeMs: 400
+    })
+
+    //initial population:
+    await cache.get(key)
+    await delay(100) //delay for the ttl, so the item is now out of date
+
+    //Force lock the key, so that the update won't work
+    memoryCacheStore.lock(key, 10000)
+    const result = await cache.get(key)
+
+    //we expect result to be data
+    expect(result).to.deep.equal(data)
+  })
+
   it('should save and return undefined and null and false correctly', async () => {
     const onMissStub = sandbox.stub()
     onMissStub.withArgs('key-undefined').resolves(undefined)

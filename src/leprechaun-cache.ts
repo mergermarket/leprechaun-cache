@@ -76,20 +76,23 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
   }
 
   public async refresh(key: string): Promise<T> {
-    return this.updateCache(key, this.softTtlMs, true)
+    return this.updateCache(key, this.softTtlMs)
   }
 
   private async doGet(key: string, ttl: number): Promise<T> {
     const result = await this.cacheStore.get(this.keyPrefix + key)
     if (!result) {
-      return this.updateCache(key, ttl, true)
+      return this.updateCache(key, ttl)
     }
 
     if (result.expiresAt > Date.now()) {
       return result.data
     }
 
-    const update = this.updateCache(key, ttl, !this.returnStale)
+    const update = this.updateCache(key, ttl).catch(e => {
+      this.onBackgroundError(e)
+      return result.data
+    })
 
     if (!this.returnStale) {
       return update
@@ -132,17 +135,8 @@ export class LeprechaunCache<T extends Cacheable = Cacheable> {
     return lock
   }
 
-  private async getLock(key: string, doSpinLock: boolean): Promise<LockResult> {
-    return doSpinLock
-      ? this.spinLock(key)
-      : {
-          lockId: (await this.cacheStore.lock(this.keyPrefix + key, this.lockTtlMs)) || '',
-          didSpin: false
-        }
-  }
-
-  private async updateCache(key: string, ttl: number, doSpinLock: boolean): Promise<T> {
-    const lock = await this.getLock(key, doSpinLock)
+  private async updateCache(key: string, ttl: number): Promise<T> {
+    const lock = await this.spinLock(key)
 
     if (!lock.lockId) {
       throw new Error('unable to acquire lock and no data in cache')
